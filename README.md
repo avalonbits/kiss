@@ -21,10 +21,11 @@ variables A -> Z.
 @ is used as special case, the 'answer' to some queries.  
 ? is used as special case, the 'carry' to some math or comparison functions.
 
-Goto or conditional goto.  
-Single loop.  
+Goto/call or conditional goto/call.  
+Single automatic loop.  
 Subroutines, up to 16 deep.  
-Up to 256 labels.  
+Up to 256 numerical labels.  
+Text labels.  
 Unlimited comments.  
 
 There is absolutely no error checking or reporrting, so just like writing in assembler, you could very easily crash with very little feedback!
@@ -59,13 +60,16 @@ COMP x with 6
 COMP x to y
 
 
-A 256 byte memory store is available. By default, this is loaded at runtime from a local file, or will be empty if file loading failed.  
+A 256 byte memory store is available. By default, this is loaded at runtime from a local file, or will be empty if file loading failed.  Currently no option to save this data.  
 
 `GETDATA <offset/variable> <variable>`   
 Read data at file offset and put into variable
 
 `SETDATA <offset/variable> <value/variable>`  
 Set data at given offset with value or variable
+
+`LOAD <filename>`  (no spaces allowed, max 14 chars inc extension)  
+Load new set of data from file.  
 
 
 ## Program Flow & logic
@@ -255,11 +259,11 @@ would yield a coordinate of: `10 +(256 *2), 20 + (256 * 0)` ie, `PLOT 522, 20`.
 ## Interaction with user
 
 `KEY`  
-checks down status and sets '@' to ascii code or 0 if none.
+Checks down status and sets '@' to ascii code or 0 if none.
 
 
 `JOY <variable1> <variable2>`   
-gets values of ports B and C for joystick input and puts results into variable 1 and 2.  
+Gets 8bit values of ports B and C for joystick input and puts results into variable 1 and 2.  
 
 
 `WAIT`  
@@ -332,5 +336,5 @@ Comments- start with /
 Every command or data is seperated by space/s.  
 A new code line starts after a CR.  
 
-Any line's command not recognised will be ignored.
+Any line's command not recognised will be ignored and treated as a comment.
 

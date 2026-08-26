@@ -1,0 +1,611 @@
+// Snake Game in KISS Language
+
+// STILL TO DO
+
+// check new fruit is not on snake body
+// audio effects
+
+
+debug 0
+
+/ ----------------------------------------------------------------
+/ variables A-Z
+/ ----------------------------------------------------------------
+
+/ A
+/ B
+/ C fruit x
+/ D fruit y
+/ E segment x
+/ F segment y
+/ G tail length
+/ H speed
+/ I
+/ J
+/ K key
+/ L 
+/ M last x
+/ N last y
+/ O 
+/ P 
+/ Q old tail x
+/ R old tail y
+/ S score
+/ T 
+/ U 
+/ V movement dx
+/ W movement dy
+/ X head x
+/ Y head y
+/ Z counter in some loops
+
+/ ----------------------------------------------------------------
+/ Start here
+/ ----------------------------------------------------------------
+
+MODE 8
+CURSOR 0
+
+CALL newdata        // load custom data file
+CALL udg            // load UDG images
+
+// the following keeps looping
+LABEL mainloop
+    CALL home
+    CALL game
+    CALL over
+GOTO mainloop
+
+/ ----------------------------------------------------------------
+/ home screen
+/ ----------------------------------------------------------------
+
+LABEL home
+CALL scrhome
+WAIT
+
+RET
+
+/ ----------------------------------------------------------------
+/ game init and variable reset
+/ ----------------------------------------------------------------
+LABEL game
+CALL scrgame    / draw the game screen
+CALL printSC    / print initial score
+
+// reset game data
+INK 161
+INK 0
+SET X 10    / default snake head pos
+SET Y 10
+
+SET H 20    / default speed delay. We could reduce during gameplay
+
+
+SET M X
+SET N Y
+SET V 1     / dx, dy
+SET W 0
+SET S 0     / score
+CALL fruit
+CALL printSC
+
+// clear data
+// hide all offscreen
+SET Q 0
+LOOP 255
+    SETDATA Q 100
+    ADD 1 Q
+ENDLOOP
+
+SET G 0
+
+/ ----------------------------------------------------------------
+// main game loop
+/ ----------------------------------------------------------------
+
+LABEL loop
+
+// check
+KEY K               / put latest keycode into K
+
+CALLIF hitL K 111   / q
+CALLIF hitR K 112   / a
+CALLIF hitU K 113   / o
+CALLIF hitD K 97    / p
+
+// move snake and redraw
+CALL slither
+CALL redraw
+
+// check for edge hit
+GOTOIF hitedge X 0
+GOTOIF hitedge X 39
+GOTOIF hitedge Y 2
+GOTOIF hitedge Y 29
+
+//-- check if hit own body
+//-- need to loop through all tail pieces to see if a match
+GOTOIF notail G 0           / don't check if no tail yet
+
+SET Z 0                     / index for offsets
+LOOP G                      / loop for each tail segment
+
+    GETDATA Z E             / get tail x
+    GOTOIF matchx X E       / if x matches value, next check y
+    ADD 1 Z                 / add 1 to prep next tail x
+    GOTO nomatch
+
+    LABEL matchx            / got x match, so check y
+    ADD 128 Z
+    GETDATA Z F             / get tail y
+    GOTOIF matchy Y F       / if x matches value, we hit so need to return  
+
+    SUB 127 Z               / no match so prep ready for next x check
+    GOTO nomatch
+
+    LABEL matchy
+    RET                     /return from game as we hit ourselves
+
+    LABEL nomatch
+
+ENDLOOP
+LABEL notail
+
+//--- check ate fruit if cd=xy
+GOTOIFNOT noeat C X
+GOTOIFNOT noeat D Y     / if neither match then no hit, else we ate fruit
+
+ADD 1 S                 / inc score
+CALL printSC            / print score
+CALL fruit              / make a new fruit
+
+BEEP 50 10              / snd effect for new fruit
+
+//if we have some tail
+GOTOIFNOT tailed G 0
+
+
+//if no tail yet, G is 0
+//add segment with prev head pos
+SET E 0
+SETDATA E M         / store last pos x
+ADD E 128           / add 128
+SETDATA E N         / store last pos y
+
+ADD 1 G             / add 1 to tail length
+
+GOTO noeat          / escape out to carry on
+
+
+
+LABEL tailed
+//add segment with last tail pos
+//need to shuffle all up 1 position
+
+SET U G             / U is tail count
+SUB 1 U             / sub 2 to get offset length
+
+GETDATA U Q         / get last tail pos x in Q
+ADD 128 U           / U will be offset into data
+GETDATA U R         / get last tail pos y in R
+
+ADD 1 G             / add 1 to tail length
+CALL slither
+
+SET U G
+SUB 1 U             / sub 1 to get offset length
+
+SETDATA U Q
+ADD 128 U           / U will be offset into data
+SETDATA U R
+ 
+LABEL noeat         / jump here is did not eat fruit
+
+/---- end of fruit eating code
+
+DELAY H             / overal game speed control
+
+GOTO loop           / loop round game code
+
+/ -------
+// we hit an edge so end of game and return
+LABEL hitedge
+RET
+
+
+/ --------- print score ---------------------------------------------
+
+LABEL printSC   
+INK 15
+INK 128
+TABTO 7 0
+PRINTNUM S
+SPC
+INK 0
+INK 161
+RET
+
+/ ---------- KEYS -------------------------------------------------
+LABEL hitL
+SET V 255
+SET W 0
+RET
+
+/ ----------------------------------------------------------------
+LABEL hitR
+SET V 1
+SET W 0
+RET
+
+/ ----------------------------------------------------------------
+LABEL hitU
+SET V 0
+SET W 255
+RET
+
+/ ----------------------------------------------------------------
+LABEL hitD
+SET V 0
+SET W 1
+RET
+
+
+
+/ ------------ move snake position coords ------------------------
+LABEL slither 
+
+
+/clear last tail segment
+GOTOIF ztail G 0    / if no tail don't bother wit this
+SET U G             / tail count
+SUB 1 U             / make z tail count -1
+GETDATA U E         / get last tail pos x in E
+ADD 128 U
+GETDATA U F
+TABTO E F           / goto new print pos
+SPC
+
+LABEL ztail
+
+
+SET M X             / store old pos
+SET N Y
+
+ADD V X             / new x and y pos of head
+ADD W Y
+
+
+// need to shuffle all other segments
+GOTOIF justhd G 0   /just draw head if tail is zero
+
+GOTOIF onet G 1     / only one tail piece to draw
+
+/default is 2+ tail pieces
+
+SET U G
+SUB 1 U             / make loop count tails -1
+
+
+SET Z G
+SUB 2 Z             / z is pointer to data start 1 back from last
+
+LOOP U
+    GETDATA Z E   
+    ADD 1 Z
+
+    SETDATA Z E
+    ADD 127 Z
+    GETDATA Z F
+
+    ADD 1 Z
+    SETDATA Z F   
+    SUB 130 Z   
+ENDLOOP
+
+
+SETDATA 0 M
+SETDATA 128 N
+
+RET
+
+/---
+
+
+LABEL onet      / one tail piece only
+
+SETDATA 0 M     / just set the tail to last head pos
+SETDATA 128 N
+RET
+
+/---
+
+LABEL justhd    /just draw head
+/ don't need to slither data just for head
+
+RET
+
+/ ------------ redraw snake and tail segments -----------------------------
+LABEL redraw    
+
+
+TABTO M N       /erase old head
+SPC
+TABTO X Y       / goto new pos
+VDP '@'         / print head
+SET M X
+SET N Y
+
+GOTOIF donedr G 0   / skip if no tail
+
+
+
+// draw all tail segments
+SET U 0
+SET Z 1
+LOOP G              / number of tail segments
+
+    GETDATA U E     /get last tail pos x in E
+    ADD 128 U
+    GETDATA U F
+
+    SUB 127 U       /this should shift data 1 pos for x and y
+    TABTO E F       / goto new print pos
+
+    / check if last segment
+
+
+
+    GOTOIF waslast G Z
+    VDP '^'         / print tail segment
+    GOTO notlast
+
+    LABEL waslast
+    VDP '|'         / print tail segment
+    LABEL notlast
+
+    ADD 1 Z
+ENDLOOP
+
+LABEL donedr
+
+RET
+
+
+/ ------------- make new fruit--------------------------------
+LABEL fruit     
+                / ++ TO DO need to check that position is not occupied
+
+RND C 36        / make random x and y pos for fruit
+ADD 2 C
+RND D 24
+ADD 4 D
+
+INK 9
+TABTO C D       / goto new fruit pos
+VDP '+'         / print fruit
+INK 0
+
+
+/ increase speed
+GOTOIF topsp H 0    / already at max speed
+SUB 1 H             / reduce speed delay
+LABEL topsp
+RET
+
+
+
+/ ----------------------------------------------------------------
+/ end of main code
+/ ----------------------------------------------------------------
+
+// the 256 byte storage is used for tracking the tail
+// so needs to be re-populated for each new screen's text
+
+// load text data from file
+LABEL newdata
+LOAD snadat.txt
+RET
+
+
+/ ----------------------------------------------------------------
+/ draw home screen
+/ ----------------------------------------------------------------
+
+LABEL scrhome
+
+CLS
+TABTO 13 4
+INK 11
+VDPS 0 10           / snake game
+
+TABTO 10 6
+INK 11
+VDPS 11 16         / in KISS
+
+TABTO 10 12
+INK 10
+VDPS 28 16         / s to start
+
+INK 9
+TABTO 11 14
+VDPS 45 14         / esc to exit
+
+TABTO 12 21
+INK 15
+VDPS 60 12         / control keys
+
+TABTO 14 23
+VDPS 74 7          / qaop
+
+TABTO 5 25
+VDPS 82 29         / eat...
+
+INK 15
+RET
+
+
+/ ----------------------------------------------------------------
+/ draw game screen
+/ ----------------------------------------------------------------
+
+LABEL scrgame
+INK 161
+INK 33
+CLS
+
+// draw borders
+INK 2
+INK 145
+SET Z = 0
+LOOP 40
+    TABTO Z 2
+    VDP '!'
+    TABTO Z 29
+    VDP '!'
+    ADD 1 Z
+ENDLOOP
+SET Z = 2
+LOOP 28
+    TABTO 0 Z
+    VDP '!'
+    TABTO 39 Z
+    VDP '!'
+    ADD 1 Z
+ENDLOOP
+INK 128
+
+// draw top black section
+TABTO 0,0
+LOOP 80
+    SPC
+ENDLOOP
+
+// draw title
+INK 11
+TABTO 11 0
+PRINT |^^@
+SPC
+VDPS 0 5
+SPC
+PRINT @^^|
+
+// draw score
+INK 15
+TABTO 0 0
+VDPS 121 6
+
+RET
+
+
+/ ----------------------------------------------------------------
+/ game over screen
+/ ----------------------------------------------------------------
+LABEL over
+
+BEEP 10 100
+
+INK 128
+INK 15
+
+
+CALL newdata        / reload text file
+TABTO 10 10
+CALL blanks
+TABTO 10 11
+CALL blanks
+TABTO 10 12
+CALL blanks
+TABTO 10 13
+CALL blanks
+TABTO 10 14
+CALL blanks
+TABTO 10 15
+CALL blanks
+TABTO 10 16
+CALL blanks
+
+TABTO 14 11
+VDPS 111 9          / game over
+
+TABTO 11 13
+VDPS 28 16          / s to start
+
+TABTO 12 15
+VDPS 45 14          / esc to exit
+
+WAIT                / wait for any key press
+
+RET
+
+LABEL blanks
+LOOP 18
+SPC
+ENDLOOP
+
+RET
+
+/ ----------------------------------------------------------------
+/ define UDG graphics
+/ ----------------------------------------------------------------
+
+LABEL udg
+
+    VDP 23          / define new UDG
+    VDP '@'         / @ is head
+    VDP 00111100    / 8 bytes of data
+    VDP 01111110
+    VDP 11011011
+    VDP 11111111
+    VDP 11111111
+    VDP 11100111
+    VDP 01111110
+    VDP 00111100
+    
+    VDP 23
+    VDP '^'         / body
+    VDP 00000000
+    VDP 00011000
+    VDP 00111100
+    VDP 01111110
+    VDP 01111110
+    VDP 00111100
+    VDP 00011000
+    VDP 00000000
+    
+    VDP 23
+    VDP '|'         / tailend
+    VDP 00000000
+    VDP 00000000
+    VDP 00011000
+    VDP 00111100
+    VDP 00111100
+    VDP 00011000
+    VDP 00000000
+    VDP 00000000
+    
+    VDP 23 
+    VDP '+'        / fruit
+    VDP 00011000
+    VDP 00001000
+    VDP 01110110
+    VDP 11111111
+    VDP 11111111
+    VDP 11111111
+    VDP 01111010
+    VDP 00110100
+    
+    VDP 23 
+    VDP '!'         / grass edges
+    VDP 00010001
+    VDP 01000100
+    VDP 00010001
+    VDP 01000100
+    VDP 00010001
+    VDP 01000100
+    VDP 00010001
+    VDP 01000100
+    
+
+RET
+

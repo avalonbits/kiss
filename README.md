@@ -13,6 +13,11 @@ Use `CTRL R` to run the file.
 A command line version is available with no editor, that takes the file name as the first argument. eg.  
 `runkiss myfile.txt`
 
+# Examples
+There are several examples included to demonstrate the main commands.  
+There is also a fully functional game of `Snake` to show how a full program could be developed.  
+![](./snake.png)
+
 # The Language
 
 Concept-

@@ -20,7 +20,7 @@
 
 // runtime part of code
 #define MAX_LINES 2048                    // max number of lines in our program
-#define MAX_LEN 20                      // max length of chars in each code line
+#define MAX_LEN 30                      // max length of chars in each code line
 #define MAX_LINE_LEN 256
 #define MAX_TEXT_LABELS 64
 
@@ -44,7 +44,7 @@ uint16_t returnStack[17];                   // used to store retun line numbers 
 uint8_t returnStackIndex = 0;               // current return stack position
 
 uint16_t labelLine[MAX_TEXT_LABELS];
-char labelName[MAX_TEXT_LABELS][8];
+char labelName[MAX_TEXT_LABELS][12];
 
 uint8_t textLabelCount;
 char codeData[MAX_LINES][MAX_LEN];      // used to store each line of code
@@ -64,6 +64,7 @@ char *commandList[] = {
     "COMP",
     "GETDATA",
     "SETDATA",
+    "LOAD",
 
     "LABEL",
     "LOOP",
@@ -124,7 +125,8 @@ char *commandList[] = {
     "DEBUG",
     "PRINTVARS",
     "TIMER",
-    "TIMERRET"
+    "TIMERRET",
+    "SPIT"
     
 };
 
@@ -136,6 +138,7 @@ enum cmds {
     COMP,
     GETDATA,
     SETDATA,
+    LOAD,
 
     LABEL,
     LOOP,
@@ -195,7 +198,8 @@ enum cmds {
     DEBUG,
     PRINTVARS,
     TIMER,
-    TIMERRET
+    TIMERRET,
+    SPIT
     
 };
 
@@ -241,7 +245,7 @@ uint8_t count;
 uint8_t leng;
 uint8_t radius;
 uint16_t joy;
-char buffer[20];
+char buffer[MAX_LEN];
 char *endptr;
 int val;
 
@@ -252,8 +256,12 @@ uint8_t timerFreq;
 uint16_t timerLine;
 uint16_t prevLine;
 
-        uint8_t port;
-        uint8_t pin;
+uint8_t port;
+uint8_t pin;
+
+FILE *newDatafile;
+
+UART uart1Settings;
 
 //void runcode(text_buffer* aTextBuffer){
 void runcode(char* fname){
@@ -266,7 +274,16 @@ void runcode(char* fname){
     currentLine = 0;
     textLabelCount = 0;
     returnStackIndex = 0;
- 
+
+    // uart setings if opened
+    uart1Settings.baudRate = 9600;						// define UART1 port settings
+	uart1Settings.dataBits = 8;
+	uart1Settings.stopBits = 1;
+	uart1Settings.parity = 0;
+	uart1Settings.flowcontrol= 0;
+	uart1Settings.eir = 0;
+
+
 
     build_sin_table();  // in case sin or cosine is needed
 
@@ -298,7 +315,7 @@ void runcode(char* fname){
     // numLines will keep track of the number of lines read so far from the file
     uint16_t numLines = 0;
 
-    char anotherbuffer[20];
+    char anotherbuffer[MAX_LEN];
     strcpy(anotherbuffer, codeData[numLines]);
 
 
@@ -312,7 +329,7 @@ void runcode(char* fname){
         if(DEBUGGING) printf("Line %d: %s\n", line_num++, line);
         line[strlen(line)] = '\0';
         strcpy(codeData[numLines], line);
-        codeData[numLines][19] = '\0';
+        codeData[numLines][MAX_LEN-1] = '\0';
         toUpperCase(codeData[numLines]);  // convert all commands to UPPER case for quick processing
 
         numLines++;
@@ -369,6 +386,8 @@ void runcode(char* fname){
         char *lcommand;
         char *lparam1;
         char *lparam2;
+        char *lparam3;
+        char *lparam4;
 
        
 
@@ -405,6 +424,8 @@ void runcode(char* fname){
         lcommand = strtok(curLine, " ");
         lparam1 = strtok(NULL, " ");
         lparam2 = strtok(NULL, " ");
+        lparam3 = strtok(NULL, " ");
+        lparam4 = strtok(NULL, " ");
         uint8_t labelNum;
 
 
@@ -468,6 +489,8 @@ void runcode(char* fname){
         char src[MAX_LEN];
         strcpy(src, codeData[currentLine]);
         
+        if(DEBUGGING) printf("\nDealing with: %s \n",codeData[currentLine]);
+
         char *command;
         char *param1;
         char *param2;
@@ -595,7 +618,7 @@ switch (lineCmd) {
 
         if(*param2 == 39){ // must be a single quote, ie char, 'k' for example will store ascii value of 'k'
             char v = param2[1];
-            value = param2[1];
+            value = (uint8_t)v; //param2[1];
 
             if(DEBUGGING) printf("SET offset %d to ascii value %d\n", varOffset, value);
 
@@ -692,8 +715,8 @@ switch (lineCmd) {
 //-----------------------------------------------
 //
 //  process GETDATA command
-//  GETDATA <offset/variable> <value/variable>
-//  gets a byte from data
+//  GETDATA <offset/variable> <variable>
+//  gets a byte from data and puts into variable
 //
 //-----------------------------------------------
 
@@ -745,6 +768,38 @@ switch (lineCmd) {
  
            break;
 
+
+
+//-----------------------------------------------
+//
+//  process LOADDATA command
+//  LOADDATA <filename>
+//  loads new data
+//
+//-----------------------------------------------
+
+   case  LOAD:
+
+
+
+// try to load a data file if exists
+// if it fails, the space will be empty
+   
+    newDatafile = fopen(param1, "r");
+
+    if (newDatafile != NULL)
+    {
+        fread(dataSpace, 1,256, newDatafile ); 
+        if(DEBUGGING) printf("got data file, 1st byte is: %d\n", dataSpace[0]);
+    } else {
+        if(DEBUGGING) printf("failed to open data file %s\n",param1);
+    }
+    fclose(newDatafile);
+
+
+    break;
+
+
 //-----------------------------------------------
 //-----------------------------------------------
 //
@@ -788,8 +843,6 @@ switch (lineCmd) {
 
    case LOOP:
 
-
-
         loopReturnLine = currentLine;
 
         if(*param1 > 57){ // must be a char, ie set to another variable
@@ -798,7 +851,7 @@ switch (lineCmd) {
             loops = atoi(param1);
         }
         loopMax = loops-1;
-        if(DEBUGGING) printf("Starting loop %d times\n", loopMax);
+        if(DEBUGGING) printf("Starting loop %d times\n", loops);
         break;
 
 //-----------------------------------------------
@@ -811,7 +864,7 @@ switch (lineCmd) {
    case ENDLOOP:
         if(loopMax > 0){
             // still running
-            if(DEBUGGING) printf("Looping back\n");
+            if(DEBUGGING) printf("Looping back, loop count: %d\n",loopMax);
             loopMax--;
             currentLine = loopReturnLine;
         } else {
@@ -831,7 +884,7 @@ switch (lineCmd) {
    case GOTO:
 
 
-        if(*param1 > 57){ // must be a char, ie set to another variable
+        if(*param1 > 57){ // must be a char, ie set to text label
             currentLine = getLabelLine(param1);
             if(DEBUGGING) printf("GOTO TEXT LABEL %s which is line %d \n", param1, currentLine);
 
@@ -855,15 +908,18 @@ switch (lineCmd) {
 //-----------------------------------------------
 
    case GOTOIF:
+        prevLine = currentLine;
 
-        if(*param1 > 57){ // must be a char, ie set to another variable
+        if(DEBUGGING) printf("p1 %s p2 %s p3 %s \n", param1, param2, param3);
+
+        if(*param1 > 57){ // must be a char, ie set to text label
             currentLine = getLabelLine(param1);
-            if(DEBUGGING) printf("GOTO TEXT LABEL %s which is line %d \n", param1, currentLine);
+            if(DEBUGGING) printf("GOTOIF TEXT LABEL %s which is line %d \n", param1, currentLine);
 
         } else { // else it is an int value
             value = atoi(param1);
             currentLine = labels[value];
-             if(DEBUGGING) printf("GOTO NUMBER LABEL %d which is line %d \n", value, labels[value]);
+             if(DEBUGGING) printf("GOTOIF NUMBER LABEL %d which is line %d \n", value, labels[value]);
         }
 
         // if(*param1 > 57){ // must be a char, ie set to another variable
@@ -887,12 +943,17 @@ switch (lineCmd) {
         } else { // else it is an int value
             value = atoi(param3);
         }
-
-        if(DEBUGGING) printf("GOTOIF LABEL %d line %d checkValue %d with: %d\n", labelValue, labels[labelValue], checkValue, value);
+        if(DEBUGGING) printf("Comparing %d with %d \n", checkValue, value);
+        //if(DEBUGGING) printf("GOTOIF LABEL %d line %d checkValue %d with: %d\n", labelValue, labels[labelValue], checkValue, value);
         if(value == checkValue){
             //currentLine = labels[labelValue];
-            if(DEBUGGING) printf("GOTOIF LABEL %d \n", labelValue);
-        }
+            
+            if(DEBUGGING) printf("GOTOIF LABEL %s for a match\n", param1);
+        }else{
+                currentLine = prevLine;
+                if(DEBUGGING) printf("GOTOIF LABEL %s Did NOT match\n", param1);
+            }
+        
         break;
 //-----------------------------------------------
 //
@@ -902,23 +963,23 @@ switch (lineCmd) {
 //-----------------------------------------------
 
    case GOTOIFNOT:
-
-
+if(DEBUGGING) printf("p1 %s p2 %s p3 %s \n", param1, param2, param3);
+        prevLine = currentLine;
         // if(*param1 > 57){ // must be a char, ie set to another variable
         //     labelValue = varSpace[lower(*param1)];
 
         // } else { // else it is an int value
         //     labelValue = atoi(param1);
         // }
-
+        
         if(*param1 > 57){ // must be a char, ie set to another variable
             currentLine = getLabelLine(param1);
-            if(DEBUGGING) printf("GOTO TEXT LABEL %s which is line %d \n", param1, currentLine);
+            if(DEBUGGING) printf("GOTOIFNOT TEXT LABEL %s which is line %d \n", param1, currentLine);
 
         } else { // else it is an int value
             value = atoi(param1);
             currentLine = labels[value];
-             if(DEBUGGING) printf("GOTO NUMBER LABEL %d which is line %d \n", value, labels[value]);
+             if(DEBUGGING) printf("GOTOIFNOT NUMBER LABEL %d which is line %d \n", value, labels[value]);
         }
 
         if(*param2 > 57){ // must be a char, ie set to another variable
@@ -936,10 +997,14 @@ switch (lineCmd) {
             value = atoi(param3);
         }
 
-        if(DEBUGGING) printf("GOTOIF LABEL %d line %d checkValue %d with: %d\n", labelValue, labels[labelValue], checkValue, value);
+        if(DEBUGGING) printf("Comparing %d with %d \n", checkValue, value);
         if(value != checkValue){
             //currentLine = labels[labelValue];
-            if(DEBUGGING) printf("GOTOIFNOT LABEL %d \n", labelValue);
+            if(DEBUGGING) printf("GOTOIFNOT LABEL %s for a match\n", param1);
+            //if(DEBUGGING) printf("GOTOIFNOT LABEL  \n");
+        } else{
+            if(DEBUGGING) printf("GOTOIFNOT LABEL %s NO MATCH\n", param1);
+            currentLine = prevLine;        
         }
         break;
 
@@ -1969,7 +2034,12 @@ switch (lineCmd) {
 
     case KEY:
         value = vdp_getKeyCode();
-        varSpace[resultChar] = value;
+        if(param1 != NULL){  //  variable
+           varSpace[lower(*param1)] = value;
+        } else { // else it is an int value
+            varSpace[resultChar] = value;
+        }
+        
         if(DEBUGGING) printf("KEY pressed was %d \n", value );
         break;
 
@@ -2297,6 +2367,54 @@ switch (lineCmd) {
 
     break;
 
+    //-----------------------------------------------
+//
+// process SPIT command
+// SPIT <command> <variable/value> 
+// send number out UART1 port
+// mainly used for debuggiung purposes on emulator
+//
+// if 0, close uart, if 1 open uart, if 2 send param 2.
+//
+//-----------------------------------------------
+
+ case SPIT:
+    
+    if (param1[0] == '0'){   // close uart
+        if(DEBUGGING) printf("close uart\n");
+        mos_uclose();
+
+    } else if (param1[0] == '1'){ // open uart
+        int res = mos_uopen(&uart1Settings);
+        if(DEBUGGING) printf("Try opening uart: %d\n", res);
+    } else if (param1[0] == '2'){ // send param 2 via uart
+
+        leng = strlen(param2);
+
+        if(leng == 8){
+            value = (uint8_t) strtol(param2, NULL, 2);
+        }
+        else if(*param2 == 39){ // must be a single quote, ie char to be sent in [1]
+            value = param2[1];
+        } else if(*param2 > 57){ // must be a char, ie set to another variable
+            value = varSpace[lower(*param2)];
+        } else { // else it is an int value
+            value = atoi(param2);
+        }
+        mos_uputc(value);
+        if(DEBUGGING) printf("sending uart with: %d\n", value);
+        // putchar(value);  send uart instead
+    }
+
+        break;
+
+//-----------------------------------------------
+//
+// process unknown or default command
+//
+//-----------------------------------------------
+
+
   default:
     if(DEBUGGING) printf("Probably a comment: %s \n", command);
     // get label for timer routine
@@ -2459,7 +2577,7 @@ uint16_t getLabelLine(char *labelParam){
         if(*labelParam > 57){                   // must be a char, ie text label
             
             // need to look up label in array of those captured
-            if(DEBUGGING) printf("GOTO: %s ", labelParam);
+            if(DEBUGGING) printf("GET LABEL: %s ", labelParam);
             uint16_t linefound;
 
             for (uint16_t i = 0; i < textLabelCount; i++) {

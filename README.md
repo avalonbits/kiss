@@ -309,7 +309,7 @@ All sprites are 16x16 pixels and files need to be in RGBA2222 format, capitalise
 Creates a sprite with ID from file.  
 
 `SPADD <ID/variable> <filename>`  
-Adds a frame ro a sprite.  
+Adds a frame to a sprite.  
 
 `SPMOVE <ID/variable> <ID/variable> <ID/variable> `  
 Move sprite with ID to x, y position.    

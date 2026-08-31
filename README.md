@@ -17,7 +17,6 @@ A command line version is available with no editor, that takes the file name as 
 There are several examples included to demonstrate the main commands.  
 There is also a fully functional game of `Snake` to show how a full program could be developed.  
 
-![](./snake.png)
 
 # The Language
 
@@ -76,6 +75,9 @@ Set data at given offset with value or variable
 
 `LOAD <filename>`  (no spaces allowed, max 14 chars inc extension)  
 Load new set of data from file.  
+
+`SAVE <filename>`  (no spaces allowed, max 14 chars inc extension)  
+Saves current 256 byte data into a new file, or overwrites existing.  
 
 
 ## Program Flow & logic
@@ -216,7 +218,7 @@ Set cursor tab position to x,y
 Sends a contiguous series of chars to VDP as string. No spaces allowed.
 
 
-`PRINTNUM` <value/variable> <optional format>  
+`PRINTNUM <value/variable> <optional format>`  
 Prints out a number. Format options: DEC, HEX, BIN.  
 Default is decimal
 

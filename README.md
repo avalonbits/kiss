@@ -302,6 +302,35 @@ NOTE: Debug mode must not be active when sending VDP bytes.
 `VDPS <offset/variable> <count/variable>`  
 Sends a series of bytes to VDP from data store.
 
+## Sprites  
+All sprites are 16x16 pixels and files need to be in RGBA2222 format, capitalised filenames.  
+
+`SPSET <ID/variable> <filename>`  
+Creates a sprite with ID from file.  
+
+`SPADD <ID/variable> <filename>`  
+Adds a frame ro a sprite.  
+
+`SPMOVE <ID/variable> <ID/variable> <ID/variable> `  
+Move sprite with ID to x, y position.    
+
+`SPSHOW <ID/variable> <0/1>`  
+Hide or show a sprite.  
+
+`SPFRAME <ID/variable> <ID/variable>`  
+Set frame of a sprite.  
+
+`SPACT <ID/variable> `  
+Activate number of sprites.  
+
+
+
+
+
+
+
+
+
 
 ## Other Misc Commands
 

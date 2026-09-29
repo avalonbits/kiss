@@ -1,39 +1,88 @@
 /*
- * Copyright (C) 2023  Igor Cananea <icc@avalonbits.com>
- * Author: Igor Cananea <icc@avalonbits.com>
+ * KISS, on AED's editing libraries (aed-libs 1.3.5, from AED's GitHub releases).
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * The editor is AED's: libedui and libedcore do the text, the screen and the
+ * editing keys (ED_KEYS). This file adds what makes it KISS -- CTRL+R saves the
+ * file and runs it -- and the few keys KISS has always had on top: save, save
+ * as, quit, and CTRL+C for the colour picker.
  */
-
-#include "editor.h"
-#include "editor.h"
-#include "screen.h"
-
+#include <stdint.h>
 #include <stdio.h>
 
-int main(int argc, char** argv) {
-    editor ed;
+#include "app.h"
+#include "cmd_ops.h"
+#include "editor.h"
+#include "keys.h"
+#include "user_input.h"
+#include "runtime.h"    // needs stdio.h and stdint.h first
 
-    const char* fname = NULL;
-    if (argc > 1) {
-        fname = argv[1];
+// Where KISS keeps its files. It shares AED's grammars and themes, and has no
+// settings file of its own.
+static const app_context KISS_APP = {
+    .name       = "kiss",
+    .cfg_path   = NULL,
+    .cfg_old    = NULL,
+    .syntax_dir = "/config/aed/syntax",
+    .theme_dir  = "/config/aed/themes",
+    .font_dir   = "/config/aed",
+};
+
+// CTRL+R: save, run the program, then put the editor back.
+static void kiss_run(editor* ed) {
+    ed_cmd_save(ed);
+    const char* fname = tb_fname(&ed->doc_->buf_);
+    if (fname == NULL || fname[0] == 0) {
+        return;                 // nothing saved, so nothing to run
     }
-    if (!ed_init(&ed, 256, fname)) {
+    runcode((char*) fname);
+
+    // The editor queues every key pressed, and it went on queueing them while
+    // the program ran: the arrows of a game, the answers to a quiz, the ESC
+    // that stopped it. They belong to the program, so they are thrown away
+    // here rather than typed into the file.
+    key_press kp;
+    while (keys_poll(&kp)) {
+    }
+    cmd_restore_after_modal(ed, false);
+}
+
+// CTRL+C: the colour picker, as KISS has always had it.
+static void kiss_colours(editor* ed) {
+    if (ui_color_picker(&ed->ui_, &ed->scr_) == YES_OPT) {
+        ed_pick_syntax(ed);     // the theme follows the background
+        cmd_restore_after_modal(ed, false);
+    }
+}
+
+// KISS's keys, in front of AED's editing keys. A key here wins over ED_KEYS,
+// which is how CTRL+C stays the colour picker rather than becoming copy.
+static const key_binding KISS_BINDINGS[] = {
+    { VK_r, MOD_CTRL,           0, kiss_run },
+    { VK_R, MOD_CTRL,           0, kiss_run },
+    { VK_c, MOD_CTRL,           0, kiss_colours },
+    { VK_C, MOD_CTRL,           0, kiss_colours },
+    { VK_s, MOD_CTRL | MOD_ALT, 0, cmd_save_as },
+    { VK_S, MOD_CTRL | MOD_ALT, 0, cmd_save_as },
+    { VK_s, MOD_CTRL,           0, ed_cmd_save },
+    { VK_S, MOD_CTRL,           0, ed_cmd_save },
+    { VK_q, MOD_CTRL,           0, ed_cmd_quit },
+    { VK_Q, MOD_CTRL,           0, ed_cmd_quit },
+};
+static const keymap KISS_KEYS = {
+    KISS_BINDINGS, (int) (sizeof(KISS_BINDINGS) / sizeof(KISS_BINDINGS[0])),
+    &ED_KEYS,
+};
+
+static const ed_program KISS = { &KISS_APP, &KISS_KEYS, NULL, NULL, " KISS " };
+
+int main(int argc, char** argv) {
+    static editor ed;
+    const char* fname = argc > 1 ? argv[1] : NULL;
+    if (ed_init_for(&ed, TB_DOC_KB, fname, &KISS) == NULL) {
         return 1;
     }
     ed_run(&ed);
-
     ed_destroy(&ed);
+
     return 0;
 }

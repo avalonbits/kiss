@@ -2522,8 +2522,8 @@ void strip_leading_spaces_inplace(char *str) {
 }
 
 char *strip_leading_spaces(char *str) {
-    //while (isspace((unsigned char)*str)) {
-    while ((uint8_t)*str == 32) {
+    while (isspace((unsigned char)*str)) {
+    //while ((uint8_t)*str == 32) {
         str++;
     }
     return str;

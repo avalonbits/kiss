@@ -1,0 +1,8 @@
+# Build output. bin/KISS.bin itself is kept, as it always has been.
+obj/
+bin/*.map
+bin/*.noname.bin
+
+# AED's libraries, unpacked from aed-libs-<version>.tar.gz (see Makefile).
+aed-libs-*/
+aed-libs-*.tar.gz

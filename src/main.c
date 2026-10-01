@@ -1,5 +1,5 @@
 /*
- * KISS, on AED's editing libraries (aed-libs 1.3.5, from AED's GitHub releases).
+ * KISS, on AED's editing libraries (aed-libs 1.4.0, from AED's GitHub releases).
  *
  * The editor is AED's: libedui and libedcore do the text, the screen and the
  * editing keys (ED_KEYS). This file adds what makes it KISS -- CTRL+R saves the
@@ -43,7 +43,12 @@ static void kiss_run(editor* ed) {
     key_press kp;
     while (keys_poll(&kp)) {
     }
-    cmd_restore_after_modal(ed, false);
+
+    // The program ends by setting the screen mode back, which resets the
+    // colours, the font and the cursor settings the editor had made.
+    // ed_resume sends them again and repaints, where a plain repaint drew a
+    // two-tone title bar and black borders.
+    ed_resume(ed);
 }
 
 // CTRL+C: the colour picker, as KISS has always had it.
